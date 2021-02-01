@@ -1,29 +1,14 @@
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Date;
 import java.util.HashMap;
-import java.util.Map;
-import java.util.Scanner;
-import java.util.concurrent.BrokenBarrierException;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.CyclicBarrier;
 import java.util.regex.*;
-
-import javax.sql.rowset.spi.SyncResolver;
-
-import com.sun.tools.javac.Main;
-
-
-
 
 
 
@@ -64,10 +49,6 @@ class LocalD extends Thread{
 	
 	
 	boolean exit = false;
-	boolean send = false;
-	
-	CountDownLatch latch;
-	
 	
 	LocalD(String sName, int port, int nxtPort){
 		
@@ -144,7 +125,6 @@ class LocalD extends Thread{
 		
 				DatagramPacket clientPacket = new DatagramPacket(requestBytes,requestBytes.length);
 				String request;
-				String response;
 				
 				
 				// Receive Packet
@@ -153,7 +133,7 @@ class LocalD extends Thread{
 					request = new String(clientPacket.getData()).trim();
 				}
 				
-				System.out.println("request: "+ request);
+				
 				
 				//Extract client information
 				
@@ -164,11 +144,11 @@ class LocalD extends Thread{
 			    //////////////////////////////
 			    
 			
-			    
+			    boolean req = true;
 			    boolean a = false;
 		    	if(hash.get(request) != null)
 		    	{
-		    		// check if second string in number so it's the por else it's CName
+		    		// check if second string in number so it's the port else it's CName
 		    		if(hash.get(request).size() > 1)
 			    		if ( Pattern.matches("\\b\\d+\\b", hash.get(request).get(1) ) )
 			    			a = true;
@@ -179,19 +159,21 @@ class LocalD extends Thread{
 		    		if(hash.get(request).size() == 1 ||( a && hash.get(request).size() == 2) )
 		    		{
 		    			
-		    			
+		    			// this condition if response has ip with port
 		    			if(a) {
-		    				responseBytes = (String.format("Reply from Server: URL = %s IP Address = %s#%s\nQuery Type: A\nServer Name: %s DNS", request, hash.get(request).get(0), hash.get(request).get(1), serverName) ).getBytes();
+		    				responseBytes = (String.format("Reply from Server: URL = %s \nIP Address = %s#%s\nQuery Type: A\nServer Name: %s DNS", request, hash.get(request).get(0), hash.get(request).get(1), serverName) ).getBytes();
 		    				QType = "A";
 		    				reqIP = hash.get(request).get(0);
 		    			}
+		    			// this condition in case if response from AU server
 		    			else if(nextPort == 0) {
-		    				responseBytes = (String.format("Reply from Server: URL = %s IP Address = %s\nQuery Type: A, NS\nServer Name: %s DNS", request, hash.get(request).get(0), serverName) ).getBytes();
+		    				responseBytes = (String.format("Reply from Server: URL = %s \nIP Address = %s\nQuery Type: A, NS\nServer Name: %s DNS", request, hash.get(request).get(0), serverName) ).getBytes();
 		    				QType = "A, NS";
 		    				reqIP = hash.get(request).get(0);
 		    			}
+		    			// normal response
 		    			else {
-		    				responseBytes = (String.format("Reply from Server: URL = %s IP Address = %s\nQuery Type: A\nServer Name: %s DNS", request, hash.get(request).get(0), serverName) ).getBytes();
+		    				responseBytes = (String.format("Reply from Server: URL = %s \nIP Address = %s\nQuery Type: A\nServer Name: %s DNS", request, hash.get(request).get(0), serverName) ).getBytes();
 		    				QType = "A";
 		    				reqIP = hash.get(request).get(0);
 		    			}
@@ -202,7 +184,7 @@ class LocalD extends Thread{
 		    		{
 		    			// CName ip
 		    			
-		    			responseBytes = (String.format("Reply from Server: URL = %s IP Address = %s\nQuery Type: A, CNAME\nServer Name: %s DNS\nCanonical Name: %s\nAliases: %s", request, hash.get(request).get(0), serverName, hash.get(request).get(1),request) ).getBytes();
+		    			responseBytes = (String.format("Reply from Server: URL = %s \nIP Address = %s\nQuery Type: A, CNAME\nServer Name: %s DNS\nCanonical Name: %s\nAliases: %s", request, hash.get(request).get(0), serverName, hash.get(request).get(1),request) ).getBytes();
 		    			QType = "A, CNAME";
 		    			Cname = hash.get(request).get(1);
 		    			Aliase = request;
@@ -220,8 +202,10 @@ class LocalD extends Thread{
 		    	else if(request.compareToIgnoreCase("quit") == 0)
 			    {
 			    	exit = true;
+			    	req = false;
 			    	
-			    	System.out.println("Client is Disconnected");
+			    	
+			    	
 			    	// tell root server to quit
 			    	InetAddress rootIP = InetAddress.getByName("localhost");
 			    	
@@ -244,19 +228,20 @@ class LocalD extends Thread{
 		    		}
 		    		else {
 			    		// Send request to next server
+		    			req = false; 
 			    		InetAddress rootIP = InetAddress.getByName("localhost");
 			    		
 			    		requestBytes = request.getBytes();
-			    		DatagramPacket to_root_packet = new DatagramPacket(requestBytes, requestBytes.length, rootIP, nextPort);
-			    		serverSocket.send(to_root_packet);
+			    		DatagramPacket to_nxtServer_packet = new DatagramPacket(requestBytes, requestBytes.length, rootIP, nextPort);
+			    		serverSocket.send(to_nxtServer_packet);
 			    		
 			    		// receive from root
 			    		
 			    		responseBytes = new byte[4096];
-			    		DatagramPacket from_root_packet = new DatagramPacket(responseBytes, responseBytes.length);
+			    		DatagramPacket from_nxtServer_packet = new DatagramPacket(responseBytes, responseBytes.length);
 			    		
-			    		synchronized (from_root_packet) {
-			    			serverSocket.receive(from_root_packet);
+			    		synchronized (from_nxtServer_packet) {
+			    			serverSocket.receive(from_nxtServer_packet);
 						}
 			    		
 			    		
@@ -272,6 +257,10 @@ class LocalD extends Thread{
 					
 		    		
 		    	}
+		    	
+		    	
+		    	if(request != "" && req)
+		    		System.out.println("request: "+ request);
 		    	if(QType != "")
 		    		System.out.println("Query Type: " + QType);
 		    	if(reqIP != "")
@@ -281,19 +270,30 @@ class LocalD extends Thread{
 		    	if(Aliase != "")
 		    		System.out.println("Alies: " + Aliase);
 		    	
+		    	if(reqIP != "")
+		    		System.out.println("=====================");
+		    	
+		    	
+		    	if(nextPort == 22200 && exit)
+		    		System.out.println("Client is Disconnected");
+		    
+		    	
 		    	
 		    	request = "";
 		    	QType = "";
 		    	reqIP= "";
 		    	Cname = "";
 		    	Aliase = "";
-		    	
 			    
 			}
 			
 		}catch(Exception e) {}
 		
+		
+		
 	}
+	
+	
 	
 	
 	
@@ -309,62 +309,22 @@ public class Server {
 	        
 		System.out.println("Server connected");
 		
-		if(args[0].compareToIgnoreCase("local") == 0)
-		{
-			// local dns
+		
+			// Start dns
 			
-			System.out.println("hi local");
-			
-			LocalD local = new LocalD(args[0], 22100, 22200);
+			LocalD local = new LocalD("local", 22100, 22200);
 			local.start();
 			
-			
-		}else if(args[0].compareToIgnoreCase("root") == 0)
-		{
-			// root dns
-			
-			System.out.println("hi root");
-			
-			LocalD root = new LocalD(args[0], 22200, 22300);
+			LocalD root = new LocalD("root", 22200, 22300);
 			root.start();
 			
+			LocalD tld = new LocalD("tld", 22300, 22400);
+			tld.start();
+			
+			LocalD au = new LocalD("authoritative", 22400, 0);
+			au.start();
 			
 			
-			
-		}else if(args[0].compareToIgnoreCase("tld") == 0)
-		{
-			// TLD dns
-			
-			System.out.println("hi TLD");
-			LocalD local = new LocalD(args[0], 22300, 22400);
-			local.start();
-			
-			
-			
-		}else if(args[0].compareToIgnoreCase("authoritative") == 0)
-		{
-			// authoritative dns
-			
-			System.out.println("hi authoritative");
-			LocalD local = new LocalD(args[0], 22400, 0);
-			local.start();
-			
-			
-		}
-		else
-		{
-			System.out.println("Wrong arg!");
-		}
-	    
-		
-		
-		
-		
-			/*for(Map.Entry m:map.entrySet()){  
-			   System.out.println(m.getKey()+" "+m.getValue());  
-			  }*/
-		
-		
 
 
 	}

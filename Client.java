@@ -1,9 +1,7 @@
-import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.Scanner;
-import java.util.regex.Pattern;
 
 public class Client {
 
@@ -29,6 +27,7 @@ public class Client {
 				while(!exit)
 				{
 					System.out.println("start client");
+					System.out.println("Enter Name / Enter 'quit' to exit");
 					
 					String input = scan.nextLine();
 					
@@ -38,7 +37,6 @@ public class Client {
 					
 					clientSocket.send(clientPacket);
 					
-					System.out.println("Done sent");
 					
 					if(input.equals("quit"))
 					{
