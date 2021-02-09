@@ -1,1 +1,1 @@
-# DNS
+# DNS (server-Client)
